@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>User Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #e8f0fe;
+      margin: 0;
+      padding: 0;
+    }
+#bgVideo {
+  position: fixed;
+  top: 0;
+  left: 0;
+  min-width: 100%;
+  min-height: 100%;
+  object-fit: cover;
+  z-index: -1;
+  filter: brightness(0.4); 
+}
+
+    .container {
+      max-width: 600px;
+      margin: 3rem auto;
+      padding: 2rem;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      margin-top: 1rem;
+      margin-bottom: 0.3rem;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      margin-top: 1.5rem;
+      padding: 12px;
+      width: 100%;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    #logout {
+      background-color: #dc3545;
+      margin-top: 2rem;
+    }
+
+    .success {
+      color: green;
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    .error {
+      color: red;
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    .user-info {
+      background-color: #f8f9fa;
+      padding: 10px;
+      margin-bottom: 1rem;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  
+
+  <div class="container">
+    <h2>Welcome to Your Dashboard</h2>
+
+    <div class="user-info" id="userInfo">
+      Loading user info...
+    </div>
+
+    <form id="updateForm">
+      <label for="displayName">Full Name</label>
+      <input type="text" id="displayName" placeholder="Enter new full name">
+
+      <label for="email">Email</label>
+      <input type="email" id="email" placeholder="Enter new email">
+
+      <label for="newPassword">New Password</label>
+      <input type="password" id="newPassword" placeholder="Enter new password">
+
+      <div id="messageBox"></div>
+      <button type="submit">Update Info</button>
+    </form>
+
+    <button id="logout">Logout</button>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+ <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyA9JXZacO_izL7yBJWCyCYFEfU5WfZBSlE",
+      authDomain: "authapp-f8d64.firebaseapp.com",
+      projectId: "authapp-f8d64",
+      storageBucket: "authapp-f8d64.appspot.com",
+      messagingSenderId: "639750004860",
+      appId: "1:639750004860:web:b52a3a115b19415f1469f9"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    const userInfoDiv = document.getElementById('userInfo');
+    const messageBox = document.getElementById('messageBox');
+
+    // Check auth state
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        userInfoDiv.innerHTML = `
+          <strong>Email:</strong> ${user.email} <br>
+          <strong>Full Name:</strong> ${user.displayName || 'Not Set'}
+        `;
+        document.getElementById('email').value = user.email;
+        document.getElementById('displayName').value = user.displayName || '';
+      } else {
+        window.location.href = "login.html";
+      }
+    });
+
+    // Update user info
+    document.getElementById('updateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const user = auth.currentUser;
+
+      const newName = document.getElementById('displayName').value.trim();
+      const newEmail = document.getElementById('email').value.trim();
+      const newPassword = document.getElementById('newPassword').value.trim();
+
+      try {
+        if (newName) await user.updateProfile({ displayName: newName });
+        if (newEmail && newEmail !== user.email) await user.updateEmail(newEmail);
+        if (newPassword) await user.updatePassword(newPassword);
+
+        messageBox.textContent = "Profile updated successfully!";
+        messageBox.className = "success";
+
+        // Refresh user info display
+        userInfoDiv.innerHTML = `
+          <strong>Email:</strong> ${user.email} <br>
+          <strong>Full Name:</strong> ${newName || user.displayName || 'Not Set'}
+        `;
+      } catch (error) {
+        messageBox.textContent = error.message;
+        messageBox.className = "error";
+      }
+    });
+
+    // Logout
+    document.getElementById('logout').addEventListener('click', () => {
+      auth.signOut().then(() => {
+        window.location.href = "login.html";
+      });
+    });
+  </script>
+</body>
+</html>
+

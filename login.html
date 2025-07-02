@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #0f172a;
+      color: #f1f5f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .login-box {
+      background: #1e293b;
+      padding: 2.5rem;
+      border-radius: 12px;
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.6);
+      width: 400px;
+      backdrop-filter: blur(8px);
+      border: 1px solid #334155;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #38bdf8;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      color: #f1f5f9;
+      font-size: 0.95rem;
+    }
+
+    input::placeholder {
+      color: #94a3b8;
+    }
+
+    .input-group {
+      position: relative;
+    }
+
+    .toggle-password {
+      position: absolute;
+      top: 50%;
+      right: 12px;
+      transform: translateY(-50%);
+      cursor: pointer;
+      font-size: 1.1rem;
+      color: #94a3b8;
+    }
+
+    button {
+      width: 100%;
+      background: #38bdf8;
+      color: #0f172a;
+      font-weight: bold;
+      border: none;
+      padding: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #0ea5e9;
+    }
+
+    .error {
+      color: #f87171;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+
+    a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+      
+    }
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #38bdf8;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 0.5s linear infinite;
+  margin: auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+    .forgot-link {
+      display: block;
+      text-align: center;
+      margin-top: 0.5rem;
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    .forgot-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h2>Login</h2>
+    <form id="loginForm">
+      <label for="email">Email</label>
+      <input type="email" id="email" placeholder="Enter your email" required>
+
+      <label for="password">Password</label>
+      <div class="input-group">
+        <input type="password" id="password" placeholder="Enter your password" required>
+        <span class="toggle-password" onclick="toggleVisibility('password')">👁️</span>
+      </div>
+
+      <div class="error" id="errorMessage"></div>
+
+      <button type="submit">Login</button>
+      <div id="loader" style="display:none; text-align:center; margin-top:1rem;">
+  <div class="spinner"></div>
+</div>
+
+
+      <a class="forgot-link" href="forgotpassword.html">Forgot Password?</a>
+      <div style="text-align:center; margin-top: 1rem;">
+        Don’t have an account?
+        <a href="register.html">Register</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyA9JXZacO_izL7yBJWCyCYFEfU5WfZBSlE",
+      authDomain: "authapp-f8d64.firebaseapp.com",
+      projectId: "authapp-f8d64",
+      storageBucket: "authapp-f8d64.appspot.com",
+      messagingSenderId: "639750004860",
+      appId: "1:639750004860:web:b52a3a115b19415f1469f9"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Toggle password visibility
+    function toggleVisibility(fieldId) {
+      const field = document.getElementById(fieldId);
+      field.type = field.type === 'password' ? 'text' : 'password';
+    }
+
+    // Record login attempts and lockout if brute-force detected
+    async function recordFailedAttempt(email) {
+      const ref = db.collection("loginAttempts").doc(email);
+      const docSnap = await ref.get();
+
+      const now = Date.now();
+      const lockDuration = 15 * 60 * 1000; // 15 minutes
+      const maxAttempts = 5;
+
+      if (!docSnap.exists) {
+        // First failed attempt
+        await ref.set({
+          attempts: 1,
+          firstAttempt: now
+        });
+        return false;
+      }
+
+      const data = docSnap.data();
+      const first = data.firstAttempt;
+      const attempts = data.attempts;
+
+      if (now - first > lockDuration) {
+        // Reset after lock window
+        await ref.set({ attempts: 1, firstAttempt: now });
+        return false;
+      }
+
+      if (attempts + 1 >= maxAttempts) {
+        // Lock the account temporarily
+        await ref.update({ attempts: attempts + 1 });
+        return true; // locked
+      }
+
+      await ref.update({ attempts: attempts + 1 });
+      return false;
+    }
+
+    // Log successful login actions
+    function logAuditAction(userId, action) {
+      db.collection("auditLogs").add({
+        userId: userId,
+        action: action,
+        timestamp: new Date().toISOString()
+      }).catch(error => {
+        console.error("Audit log failed:", error);
+      });
+    }
+
+    // Login form submission
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errorDiv = document.getElementById('errorMessage');
+      const loader = document.getElementById('loader');
+      errorDiv.textContent = "";
+      loader.style.display = "block"; 
+
+      try {
+        const isLocked = await recordFailedAttempt(email);
+        if (isLocked) {
+          errorDiv.textContent = "Too many failed attempts. Try again in 15 minutes.";
+          return;
+        }
+
+        // Firebase sign-in
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+
+        if (!user.emailVerified) {
+          errorDiv.textContent = "Please verify your email before logging in.";
+          return;
+        }
+
+        // Log successful login and clear previous attempts
+        logAuditAction(user.uid, "login");
+        await db.collection("loginAttempts").doc(email).delete();
+
+        // Redirect to dashboard
+        window.location.href = "dashboard.html";
+     
+  } catch (error) {
+    loader.style.display = "none";
+    errorDiv.textContent = "Incorrect email or password. Please try again.";
+  }
+});
+
+  </script>
+</body>
+</html>
